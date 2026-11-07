@@ -1,63 +1,59 @@
 # chatagent
 
-一个有固定人设的终端聊天程序：打开终端，敲一句话，和「阿岩」聊两句。
+一个装在终端里的聊天搭子：敲 `chatagent`，就和「阿岩」聊起来。有固定人设、记得这次会话说过的话、回复逐字出现。
 
-> 当前版本 v0.3.0：多轮对话 + 流式输出 + 按 token 预算裁剪历史；支持反斜杠续行
-> 多行输入、终端配色、生成中 Ctrl+C 打断、失败自动重试。
+对话只在内存里，关掉即清空——不存盘，也不上传。
 
-## 30 秒上手
+## 安装
+
+需要 Python 3.12+ 和 [uv](https://docs.astral.sh/uv/)。在仓库根目录执行一次：
 
 ```powershell
-# 1. 装依赖（需要 uv 与 Python 3.12）
-uv sync
+uv tool install .
+```
 
-# 2. 设置密钥（Windows PowerShell）
+之后 `chatagent` 全局可用，在任意目录都能启动。
+
+## 设置 API Key
+
+密钥只从环境变量读取，不会写入任何文件。
+
+```powershell
+# Windows PowerShell（只在当前窗口有效）
 $env:DEEPSEEK_API_KEY = "sk-..."
-
-# 3. 运行
-uv run chatagent
 ```
 
 ```bash
-# macOS / Linux 第 2 步换成
+# macOS / Linux
 export DEEPSEEK_API_KEY="sk-..."
 ```
 
-进对话后输入内容回车即可，它会记得这次会话里说过的话；输入 `exit`（或 `quit`）退出，也可以按 `Ctrl+D`。
-对话只在内存里，关掉就没了。
+想让它在每次打开终端时都生效，把这行加进 PowerShell 的 `$PROFILE` 或 `~/.bashrc`。
 
-想一次发多行（比如贴一段报错），在每行末尾敲 `\` 再回车，提示符会变成 `   ... `，最后一行直接回车一次性发出；
-行尾想留一个真正的反斜杠，就敲两个 `\\`。生成到一半想打断按 `Ctrl+C`，只打断这一轮，对话继续；空闲时按 `Ctrl+C` 退出。
+> **费用**：每条消息按 DeepSeek 官方价格从你自己的账户扣费，本程序不代收、不转卖。不说话就不花钱。
 
-## 配置
-
-| 文件 | 作用 |
-| --- | --- |
-| `config.toml` | 模型与运行参数：`base_url`、超时、温度、`max_tokens`、思考模式开关、`budget_tokens` 上下文预算 |
-| `persona.toml` | 人设：名字、身份、性格、说话风格、背景、行为规则、补充设定 |
-
-两个文件都随仓库提交，由开发者维护；终端用户不需要也不应该改它们。
-密钥只从环境变量 `DEEPSEEK_API_KEY` 读取，不会写入任何文件。
-
-## 开发
+## 开始聊
 
 ```powershell
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy src
-uv run pytest -q
+chatagent
 ```
 
-目录结构：
+看到方框横幅后，在 `你 › ` 后面输入内容、回车发送。它会记得这次会话里说过的话。
 
-```text
-src/chatagent/
-├── cli.py       # 入口 main()、REPL 循环
-├── session.py   # 会话历史、流式生成器、token 累计
-├── context.py   # token 估算与预算裁剪（纯函数）
-├── config.py    # config.toml 加载与校验
-├── persona.py   # Persona 模型、persona.toml 加载、system prompt 渲染
-├── llm.py       # DeepSeek 流式调用与异常映射
-├── render.py    # 横幅、提示符、流式输出、错误输出
-└── errors.py    # 项目异常体系
-```
+## 一次输入多行
+
+贴报错、贴代码时，在每行末尾敲一个 `\` 再回车，提示符会变成 `   ... `，最后一行直接回车，整段一次发出。
+
+行尾想保留一个真正的反斜杠，就敲两个 `\\`。
+
+## 中断、重试与退出
+
+- 生成到一半想打断：按 `Ctrl+C`，只打断这一轮，对话继续。
+- 网络抖动或服务端繁忙：自动重试 2 次，仍失败就提示一句中文，程序不退出。
+- 退出：输入 `exit` 或 `quit`，或按 `Ctrl+D`；空闲时按 `Ctrl+C` 也可以。
+
+## 关于人设
+
+它是谁、怎么说话，由随包发布的 `persona.toml` 决定，作者写好的，终端用户不需要也不应该改。
+
+想换一个，改 `persona.toml` 后重新 `uv tool install .`；在仓库目录里直接 `uv run chatagent` 时，当前目录的同名文件优先。
