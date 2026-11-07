@@ -25,9 +25,8 @@ from .render import print_retry, print_warning
 
 _THINKING_DISABLED = {"thinking": {"type": "disabled"}}
 
-# 最多重试 2 次，间隔 1s、2s（docs/02 §9.3）。
-_MAX_RETRIES = 2
-_RETRY_DELAYS = (1.0, 2.0)
+# 重试次数来自 config.toml 的 api.max_retries（默认 2），这里是退避节奏。
+_MAX_BACKOFF_SECONDS = 8.0
 
 
 def chat_stream(
@@ -38,11 +37,13 @@ def chat_stream(
     """发起一次流式请求，按到达顺序逐块产出回复文本。
 
     只取 ``choices[0].delta.content``；思考模式已关闭，但仍不读取
-    ``reasoning_content``。网络抖动、限流与服务端 5xx 会自动重试，但只在
-    还没吐出任何字符时重试——已经打给用户的内容不能再重复一遍。
+    ``reasoning_content``。网络抖动、限流与服务端 5xx 会按
+    ``api.max_retries`` 自动重试（默认 2 次，退避 1s、2s），但只在还没吐出
+    任何字符时重试——已经打给用户的内容不能再重复一遍。
     """
     client = _build_client(cfg)
     request = _build_request(system_prompt, messages)
+    max_retries = cfg.api.max_retries
     attempt = 0
 
     while True:
@@ -72,19 +73,24 @@ def chat_stream(
             return
         except Exception as exc:
             error = _translate_error(exc)
-            if not _can_retry(error, attempt, produced):
+            if not _can_retry(error, attempt, produced, max_retries):
                 raise error from exc
             attempt += 1
-            print_retry(error.message, attempt, _MAX_RETRIES)
-            time.sleep(_RETRY_DELAYS[attempt - 1])
+            print_retry(error.message, attempt, max_retries)
+            time.sleep(_backoff_seconds(attempt))
         finally:
             if stream is not None:
                 stream.close()
 
 
-def _can_retry(error: ChatAgentError, attempt: int, produced: bool) -> bool:
+def _can_retry(error: ChatAgentError, attempt: int, produced: bool, max_retries: int) -> bool:
     """只在错误可重试、次数没用完、且还没有输出过任何字符时重试。"""
-    return error.retryable and not produced and attempt < _MAX_RETRIES
+    return error.retryable and not produced and attempt < max_retries
+
+
+def _backoff_seconds(attempt: int) -> float:
+    """第 n 次重试前等待 2^(n-1) 秒，上限 8 秒；默认配置下就是 1s、2s。"""
+    return min(2.0 ** (attempt - 1), _MAX_BACKOFF_SECONDS)
 
 
 def _build_request(

@@ -19,7 +19,7 @@ CFG = Config(
         base_url="https://api.deepseek.com",
         model="deepseek-flash",
         timeout_seconds=60,
-        max_retries=0,
+        max_retries=2,
     ),
     model=ModelConfig(thinking=False, temperature=0.8, max_tokens=4096),
     context=ContextConfig(budget_tokens=32000),
@@ -201,6 +201,46 @@ def test_retries_exhausted_raises_the_mapped_error(
     assert completions.calls == 3
     assert sleeps == [1.0, 2.0]
     assert capsys.readouterr().err.count("正在重试") == 2
+
+
+def test_zero_retries_in_config_means_no_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = Config(
+        api=ApiConfig(
+            base_url=CFG.api.base_url,
+            model=CFG.api.model,
+            timeout_seconds=60,
+            max_retries=0,
+        ),
+        model=CFG.model,
+        context=CFG.context,
+    )
+    completions = install(monkeypatch, [status_error(503)])
+
+    with pytest.raises(ApiError):
+        list(llm.chat_stream(SYSTEM, MESSAGES, config))
+
+    assert completions.calls == 1
+    assert sleeps == []
+
+
+def test_retry_count_follows_the_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = Config(
+        api=ApiConfig(
+            base_url=CFG.api.base_url,
+            model=CFG.api.model,
+            timeout_seconds=60,
+            max_retries=1,
+        ),
+        model=CFG.model,
+        context=CFG.context,
+    )
+    completions = install(monkeypatch, [status_error(503), status_error(503)])
+
+    with pytest.raises(ApiError):
+        list(llm.chat_stream(SYSTEM, MESSAGES, config))
+
+    assert completions.calls == 2
+    assert sleeps == [1.0]
 
 
 def test_auth_error_is_not_retried(
