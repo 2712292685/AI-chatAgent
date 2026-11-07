@@ -137,6 +137,12 @@ def print_warning(msg: str) -> None:
     print(f"{_err('!', _YELLOW)} {msg}", file=sys.stderr)
 
 
+def print_retry(reason: str, attempt: int, total: int) -> None:
+    """重试提示（docs/01 §7.3）：``! 请求失败（原因），正在重试 (n/2)...``。"""
+    message = f"! 请求失败（{reason}），正在重试 ({attempt}/{total})..."
+    print(_err(message, _YELLOW), file=sys.stderr)
+
+
 def stream_chunk(text: str) -> None:
     """逐片段输出，不换行；写完立即 flush，让字符尽快可见。"""
     sys.stdout.write(text)

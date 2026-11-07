@@ -92,7 +92,7 @@ def _chat_loop(session: ChatSession) -> int:
         except ChatAgentError as exc:
             end_stream()
             print_error(exc.message)
-            return 1
+            continue
         except KeyboardInterrupt:
             end_stream()
             print()

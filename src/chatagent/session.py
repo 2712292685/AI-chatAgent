@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Generator
 
 from .config import Config
 from .context import Message, build_payload, estimate_tokens
@@ -22,12 +22,13 @@ class ChatSession:
         self.total_input_tokens = 0
         self.total_output_tokens = 0
 
-    def ask(self, user_text: str) -> Iterator[str]:
+    def ask(self, user_text: str) -> Generator[str, None, None]:
         """发一轮请求并逐块产出回复。
 
         历史里只放 user / assistant，system prompt 每次单独放在最前面。
         user 在请求前入历史，assistant 只有生成器正常读完才入历史——失败或
-        中途中断都不会留下残缺回复。
+        被中断都不会留下残缺回复（写入代码在 ``finally`` 之后，提前关闭生成器
+        时根本执行不到）。
         """
         self.history.append(Message(role="user", content=user_text))
         budget = self.cfg.context.budget_tokens
@@ -49,9 +50,7 @@ class ChatSession:
                 yield chunk
         finally:
             # 消费者提前退出时，把底层流的连接一并释放。
-            close = getattr(stream, "close", None)
-            if callable(close):
-                close()
+            stream.close()
 
         reply = "".join(chunks)
         if reply:

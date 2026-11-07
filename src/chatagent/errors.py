@@ -5,11 +5,13 @@ class ChatAgentError(Exception):
     """chatagent 可预期错误的基类。
 
     ``message`` 是可以直接展示给终端用户的中文说明，不包含堆栈或原始 JSON。
+    ``retryable`` 表示这类错误值得原样重发一次（网络抖动、限流、服务端 5xx）。
     """
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, *, retryable: bool = False) -> None:
         super().__init__(message)
         self.message = message
+        self.retryable = retryable
 
 
 class ConfigError(ChatAgentError):
