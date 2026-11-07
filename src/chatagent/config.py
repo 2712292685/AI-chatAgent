@@ -6,14 +6,17 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .errors import ConfigError
+from .errors import AuthError, ConfigError
 
 DEFAULT_CONFIG_PATH = Path("config.toml")
+API_KEY_ENV = "DEEPSEEK_API_KEY"
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,19 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
         model=model_config,
         context=ContextConfig(budget_tokens=budget_tokens),
     )
+
+
+def load_api_key(environ: Mapping[str, str] | None = None) -> str:
+    """读取环境变量里的密钥；缺失时连同两种平台的设置方法一起报错。"""
+    source = os.environ if environ is None else environ
+    value = source.get(API_KEY_ENV, "").strip()
+    if not value:
+        raise AuthError(
+            f"未找到环境变量 {API_KEY_ENV}。请先设置密钥再启动：\n"
+            '  PowerShell: $env:DEEPSEEK_API_KEY = "sk-..."\n'
+            '  bash:       export DEEPSEEK_API_KEY="sk-..."'
+        )
+    return value
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
