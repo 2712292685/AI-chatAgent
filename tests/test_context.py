@@ -82,3 +82,32 @@ def test_build_payload_is_deterministic_and_does_not_mutate_history() -> None:
     assert first == second
     assert history == snapshot
     assert first is not history
+
+
+def test_zero_budget_still_keeps_the_newest_user_message() -> None:
+    # 真实调用时历史末尾总是本轮 user 消息。
+    history = [*round_of(1), Message(role="user", content="2")]
+
+    payload = build_payload(history, SYSTEM, 0)
+
+    assert payload == [history[-1]]
+    assert payload[0].role == "user"
+
+
+def test_exact_budget_keeps_every_round() -> None:
+    # 固定开销 10，每轮 2 条 × 5 = 10，两轮刚好 30。
+    history = [*round_of(1), *round_of(3)]
+
+    assert build_payload(history, SYSTEM, 30) == history
+
+
+def test_one_token_short_drops_the_oldest_round() -> None:
+    history = [*round_of(1), *round_of(3)]
+
+    assert build_payload(history, SYSTEM, 29) == round_of(3)
+
+
+def test_history_with_only_an_assistant_message_is_trimmed_to_empty() -> None:
+    history = [Message(role="assistant", content="孤")]
+
+    assert build_payload(history, SYSTEM, 32000) == []
