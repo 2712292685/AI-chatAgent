@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
-from .config import load_api_key, load_config
+from .config import Config, load_api_key, load_config
+from .context import Message
 from .errors import ChatAgentError
-from .llm import chat_once
+from .llm import chat_stream
 from .persona import Persona, load_persona
-from .render import print_banner, print_error, print_reply, prompt_user
+from .render import (
+    end_stream,
+    print_banner,
+    print_error,
+    print_reply,
+    prompt_user,
+    stream_chunk,
+)
 
 _EXIT_WORDS = {"exit", "quit"}
 _FAREWELL = "拜拜，早点休息。"
@@ -15,7 +23,7 @@ _FAREWELL = "拜拜，早点休息。"
 def main() -> int:
     """启动入口；返回进程退出码（0 正常，1 配置或鉴权错误）。"""
     try:
-        load_config()
+        cfg = load_config()
         persona = load_persona()
         load_api_key()
     except ChatAgentError as exc:
@@ -23,10 +31,10 @@ def main() -> int:
         return 1
 
     print_banner(persona)
-    return _chat_loop(persona, persona.to_system_prompt())
+    return _chat_loop(persona, persona.to_system_prompt(), cfg)
 
 
-def _chat_loop(persona: Persona, system_prompt: str) -> int:
+def _chat_loop(persona: Persona, system_prompt: str, cfg: Config) -> int:
     while True:
         try:
             line = prompt_user()
@@ -42,17 +50,21 @@ def _chat_loop(persona: Persona, system_prompt: str) -> int:
             _say_farewell(persona)
             return 0
 
+        stream_chunk(f"{persona.name} › ")
         try:
-            reply = chat_once(system_prompt, text)
+            for chunk in chat_stream(system_prompt, [Message(role="user", content=text)], cfg):
+                stream_chunk(chunk)
         except ChatAgentError as exc:
+            end_stream()
             print_error(exc.message)
             return 1
         except KeyboardInterrupt:
+            end_stream()
             print()
             _say_farewell(persona)
             return 0
 
-        print_reply(persona.name, reply)
+        end_stream()
 
 
 def _say_farewell(persona: Persona) -> None:

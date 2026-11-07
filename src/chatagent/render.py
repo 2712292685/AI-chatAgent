@@ -32,3 +32,20 @@ def print_reply(name: str, text: str) -> None:
 def print_error(msg: str) -> None:
     """把错误写到 stderr，避免污染重定向后的对话正文。"""
     print(f"✗ {msg}", file=sys.stderr)
+
+
+def print_warning(msg: str) -> None:
+    """把警告写到 stderr；不属于对话正文。"""
+    print(f"! {msg}", file=sys.stderr)
+
+
+def stream_chunk(text: str) -> None:
+    """逐片段输出，不换行；写完立即 flush，让字符尽快可见。"""
+    sys.stdout.write(text)
+    sys.stdout.flush()
+
+
+def end_stream() -> None:
+    """回复结束：换行，让光标停在下一行行首。"""
+    sys.stdout.write("\n")
+    sys.stdout.flush()
