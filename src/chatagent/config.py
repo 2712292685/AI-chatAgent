@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import Any
 
 from .errors import AuthError, ConfigError
+from .paths import resolve
 
-DEFAULT_CONFIG_PATH = Path("config.toml")
 API_KEY_ENV = "DEEPSEEK_API_KEY"
 
 
@@ -54,10 +54,15 @@ class Config:
     context: ContextConfig
 
 
-def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
-    """读取并校验配置文件，返回不可变配置对象。"""
-    data = _read_toml(path)
-    filename = path.name
+def load_config(path: Path | None = None) -> Config:
+    """读取并校验配置文件，返回不可变配置对象。
+
+    未显式指定路径时按 :func:`chatagent.paths.resolve` 的顺序查找：
+    当前工作目录优先，找不到就用包内自带的默认配置。
+    """
+    config_path = resolve("config.toml", path)
+    data = _read_toml(config_path)
+    filename = config_path.name
 
     api = _section(data, "api", filename)
     model = _section(data, "model", filename)
@@ -112,7 +117,7 @@ def load_api_key(environ: Mapping[str, str] | None = None) -> str:
 
 def _read_toml(path: Path) -> dict[str, Any]:
     if not path.is_file():
-        raise ConfigError(f"找不到配置文件 {path.name}，请在项目根目录下运行 chatagent")
+        raise ConfigError(f"找不到配置文件 {path.name}，请检查安装是否完整")
     try:
         with path.open("rb") as handle:
             return tomllib.load(handle)

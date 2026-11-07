@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from .errors import ConfigError
+from .paths import resolve
 
-DEFAULT_PERSONA_PATH = Path("persona.toml")
 DEFAULT_FAREWELL = "拜拜，早点休息。"
 
 _NAME_MAX = 12
@@ -79,13 +79,18 @@ class Persona:
         return "\n\n".join(blocks)
 
 
-def load_persona(path: Path = DEFAULT_PERSONA_PATH) -> Persona:
-    """读取并校验 persona.toml，返回不可变的人设对象。"""
-    filename = path.name
-    if not path.is_file():
-        raise ConfigError(f"找不到人设文件 {filename}，请在项目根目录下运行 chatagent")
+def load_persona(path: Path | None = None) -> Persona:
+    """读取并校验 persona.toml，返回不可变的人设对象。
+
+    未显式指定路径时按 :func:`chatagent.paths.resolve` 的顺序查找：
+    当前工作目录优先，找不到就用包内自带的默认人设。
+    """
+    persona_path = resolve("persona.toml", path)
+    filename = persona_path.name
+    if not persona_path.is_file():
+        raise ConfigError(f"找不到人设文件 {filename}，请检查安装是否完整")
     try:
-        with path.open("rb") as handle:
+        with persona_path.open("rb") as handle:
             data: dict[str, Any] = tomllib.load(handle)
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(f"{filename}：TOML 格式错误（{exc}）") from None

@@ -1,0 +1,15 @@
+# 运行参数。由开发者维护，随包发布；终端用户不需要修改。
+
+[api]
+base_url = "https://api.deepseek.com"
+model = "deepseek-flash"
+timeout_seconds = 60
+max_retries = 2
+
+[model]
+thinking = false        # 关闭思考模式（MVP 固定为 false，开启后 temperature 失效）
+temperature = 0.8       # 仅在 thinking = false 时生效
+max_tokens = 4096
+
+[context]
+budget_tokens = 32000   # 发送给模型的历史预算，不含 system prompt
