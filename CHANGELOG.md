@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-08
+
+### Added
+- `config.toml` and `persona.toml` ship inside the package, so an installed `chatagent` starts from any directory
+- MIT licence
+
+### Changed
+- `api.max_retries` now decides how many times a failed request is retried
+- The readme is written for people who just want to chat, not for developers
+
+### Fixed
+- Documentation matches the shipped behaviour again: file lookup order, retry count, input parsing, module list
+
 ## [0.3.0] - 2026-11-08
 
 ### Added
