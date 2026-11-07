@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import ctypes
 import sys
+import unicodedata
 from typing import Any
 
 from .persona import Persona
@@ -24,6 +25,17 @@ _YELLOW = "\x1b[33m"
 _PROMPT = "你 › "
 _CONTINUATION_PROMPT = "   ... "
 _HINT = "  输入内容开始对话。Ctrl+D 或输入 exit 退出。"
+
+# 横幅方框：docs/01 §7.1。宽度按显示列数算，右框线在中文人设名下也对齐。
+_BOX_TOP_LEFT = "╭"
+_BOX_TOP_RIGHT = "╮"
+_BOX_BOTTOM_LEFT = "╰"
+_BOX_BOTTOM_RIGHT = "╯"
+_BOX_HORIZONTAL = "─"
+_BOX_VERTICAL = "│"
+_BANNER_INDENT = "  "
+_BANNER_MIN_INNER = 44
+_WIDTH_WIDE = frozenset({"W", "F"})
 
 # Windows 控制台常量：STD_OUTPUT_HANDLE / STD_ERROR_HANDLE 与 VT 处理开关。
 _STD_OUTPUT_HANDLE = -11
@@ -50,12 +62,49 @@ def init_terminal() -> None:
 
 
 def print_banner(persona: Persona) -> None:
-    """打印启动横幅（docs/01 §7.1 的无边框纯文本版本）。"""
-    print(f"  {_out(persona.name, _BOLD_CYAN)}")
-    print(f"  {persona.role}")
+    """打印启动横幅。
+
+    TTY 里画方框（docs/01 §7.1）；非 TTY 降级为无边框两行，管道里看不到框线。
+    """
+    if _is_tty:
+        for line in banner_lines(persona.name, persona.role, color=_stdout_color):
+            print(line)
+    else:
+        print(f"  {persona.name}")
+        print(f"  {persona.role}")
     print()
     print(_HINT)
     print()
+
+
+def banner_lines(name: str, role: str, *, color: bool) -> list[str]:
+    """生成方框横幅的四行文本，宽度按显示列数补齐。
+
+    纯函数：``color`` 为 False 时返回纯文本，便于在无终端环境里校验对齐。
+    """
+    inner = max(_BANNER_MIN_INNER, 2 + display_width(name), 2 + display_width(role))
+    horizontal = _BOX_HORIZONTAL * inner
+    bar = _paint(_BOX_VERTICAL, _DIM, color)
+    top = _paint(_BOX_TOP_LEFT + horizontal + _BOX_TOP_RIGHT, _DIM, color)
+    bottom = _paint(_BOX_BOTTOM_LEFT + horizontal + _BOX_BOTTOM_RIGHT, _DIM, color)
+    name_row = bar + "  " + _paint(name, _BOLD_CYAN, color) + _padding(name, inner) + bar
+    role_row = bar + "  " + role + _padding(role, inner) + bar
+    return [
+        _BANNER_INDENT + top,
+        _BANNER_INDENT + name_row,
+        _BANNER_INDENT + role_row,
+        _BANNER_INDENT + bottom,
+    ]
+
+
+def display_width(text: str) -> int:
+    """按终端列数计算显示宽度：宽字符与全角字符占 2 列，其余占 1 列。"""
+    return sum(2 if unicodedata.east_asian_width(char) in _WIDTH_WIDE else 1 for char in text)
+
+
+def _padding(text: str, inner: int) -> str:
+    """补足 ``两个空格 + text`` 到 ``inner`` 列的空白。"""
+    return " " * (inner - 2 - display_width(text))
 
 
 def prompt_user() -> str:
