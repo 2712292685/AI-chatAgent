@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-07
+
+### Added
+- Multi-turn conversation history
+- Streaming assistant replies
+- Token-budget based context trimming
+
+### Changed
+- `llm.chat_once` replaced by streaming `chat_stream`
+
 ## [0.1.0] - 2026-11-07
 
 ### Added
