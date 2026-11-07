@@ -68,3 +68,40 @@ def test_continuation_prompt_matches_the_spec(monkeypatch: pytest.MonkeyPatch) -
     cli.prompt_continuation()
 
     assert seen == ["   ... "]
+
+
+def test_blank_line_reads_as_an_empty_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "prompt_user", lambda: "")
+
+    assert cli._read_message() == ""
+
+
+def test_whitespace_only_line_is_kept_verbatim(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "prompt_user", lambda: " \t ")
+
+    message = cli._read_message()
+
+    assert message == " \t "
+    assert not message.strip()
+
+
+def test_three_continuations_join_into_one_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    prompts = iter(["a\\", "b\\", "c\\", "d"])
+    monkeypatch.setattr(cli, "prompt_user", lambda: next(prompts))
+    monkeypatch.setattr(cli, "prompt_continuation", lambda: next(prompts))
+
+    assert cli._read_message() == "a\nb\nc\nd"
+
+
+def test_eof_in_the_middle_of_a_continuation_is_raised(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cli, "prompt_user", lambda: "only-line\\")
+
+    def raise_eof() -> str:
+        raise EOFError
+
+    monkeypatch.setattr(cli, "prompt_continuation", raise_eof)
+
+    with pytest.raises(EOFError):
+        cli._read_message()
