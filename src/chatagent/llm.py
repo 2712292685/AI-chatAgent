@@ -1,27 +1,23 @@
-"""DeepSeek 流式调用封装：异常翻译成项目异常，并对可重试错误做退避重试。"""
+"""DeepSeek 流式调用封装：异常翻译成项目异常，并对可重试错误做退避重试。
+
+`openai` 的导入放在函数内部：它单独就要 0.7 秒左右，会让启动明显变慢，
+而只有真正发请求时才需要它。
+"""
 
 from __future__ import annotations
 
 import time
 from collections.abc import Generator, Sequence
-from typing import cast
-
-import openai
-from openai import (
-    APIConnectionError,
-    APIStatusError,
-    APITimeoutError,
-    AuthenticationError,
-    BadRequestError,
-    OpenAI,
-    Stream,
-)
-from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
+from typing import TYPE_CHECKING, cast
 
 from .config import Config, load_api_key
 from .context import Message
 from .errors import ApiError, AuthError, ChatAgentError, NetworkError, RateLimitError
 from .render import print_retry, print_warning
+
+if TYPE_CHECKING:
+    from openai import APIStatusError, OpenAI, Stream
+    from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 _THINKING_DISABLED = {"thinking": {"type": "disabled"}}
 
@@ -100,13 +96,15 @@ def _build_request(
     return [
         {"role": "system", "content": system_prompt},
         *[
-            cast(ChatCompletionMessageParam, {"role": message.role, "content": message.content})
+            cast("ChatCompletionMessageParam", {"role": message.role, "content": message.content})
             for message in messages
         ],
     ]
 
 
 def _build_client(cfg: Config) -> OpenAI:
+    from openai import OpenAI
+
     return OpenAI(
         api_key=load_api_key(),
         base_url=cfg.api.base_url,
@@ -118,6 +116,15 @@ def _build_client(cfg: Config) -> OpenAI:
 
 def _translate_error(exc: Exception) -> ChatAgentError:
     """把 SDK 异常翻译成带中文说明的项目异常，并标注是否值得重试。"""
+    import openai
+    from openai import (
+        APIConnectionError,
+        APIStatusError,
+        APITimeoutError,
+        AuthenticationError,
+        BadRequestError,
+    )
+
     if isinstance(exc, AuthenticationError):
         return AuthError("密钥无效，请检查环境变量 DEEPSEEK_API_KEY")
     if isinstance(exc, openai.RateLimitError):
