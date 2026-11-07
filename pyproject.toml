@@ -1,0 +1,38 @@
+[project]
+name = "chatagent"
+version = "0.1.0"
+description = "A terminal chat agent with a fixed persona"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["openai>=1.40.0"]
+
+[project.scripts]
+chatagent = "chatagent.cli:main"
+
+[dependency-groups]
+dev = ["mypy>=1.11", "pytest>=8.0", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chatagent"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+# 文档里的代码块是示意，不是可执行源码，交给 ruff 排版会改动 docs/。
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
