@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from .config import Config, load_api_key, load_config
-from .context import Message
+from .config import load_api_key, load_config
 from .errors import ChatAgentError
-from .llm import chat_stream
 from .persona import Persona, load_persona
 from .render import (
     end_stream,
@@ -15,6 +13,7 @@ from .render import (
     prompt_user,
     stream_chunk,
 )
+from .session import ChatSession
 
 _EXIT_WORDS = {"exit", "quit"}
 _FAREWELL = "拜拜，早点休息。"
@@ -31,10 +30,12 @@ def main() -> int:
         return 1
 
     print_banner(persona)
-    return _chat_loop(persona, persona.to_system_prompt(), cfg)
+    session = ChatSession(persona, persona.to_system_prompt(), cfg)
+    return _chat_loop(session)
 
 
-def _chat_loop(persona: Persona, system_prompt: str, cfg: Config) -> int:
+def _chat_loop(session: ChatSession) -> int:
+    persona = session.persona
     while True:
         try:
             line = prompt_user()
@@ -52,7 +53,7 @@ def _chat_loop(persona: Persona, system_prompt: str, cfg: Config) -> int:
 
         stream_chunk(f"{persona.name} › ")
         try:
-            for chunk in chat_stream(system_prompt, [Message(role="user", content=text)], cfg):
+            for chunk in session.ask(text):
                 stream_chunk(chunk)
         except ChatAgentError as exc:
             end_stream()
