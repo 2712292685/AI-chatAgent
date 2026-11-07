@@ -10,6 +10,7 @@ from typing import Any
 from .errors import ConfigError
 
 DEFAULT_PERSONA_PATH = Path("persona.toml")
+DEFAULT_FAREWELL = "拜拜，早点休息。"
 
 _NAME_MAX = 12
 _ROLE_MAX = 40
@@ -19,6 +20,7 @@ _BACKGROUND_MAX = 500
 _RULE_MAX = 120
 _RULES_MAX = 20
 _EXTRA_MAX = 1000
+_FAREWELL_MAX = 40
 
 _CONSTRAINTS = (
     "【通用约束】\n"
@@ -41,6 +43,12 @@ class Persona:
     background: str = ""
     rules: tuple[str, ...] = ()
     extra: str = ""
+    farewell: str = ""
+
+    def farewell_line(self) -> str:
+        """退出时的一句告别；未配置 ``farewell`` 时退回默认文案。"""
+        text = self.farewell.strip()
+        return text or DEFAULT_FAREWELL
 
     def to_system_prompt(self) -> str:
         """按 docs/02 §7 的模板渲染成 system prompt，空字段整段省略。
@@ -90,6 +98,7 @@ def load_persona(path: Path = DEFAULT_PERSONA_PATH) -> Persona:
         background=_optional_text(data, "background", filename, _BACKGROUND_MAX),
         rules=_rules(data, filename),
         extra=_optional_text(data, "extra", filename, _EXTRA_MAX),
+        farewell=_optional_text(data, "farewell", filename, _FAREWELL_MAX),
     )
 
 

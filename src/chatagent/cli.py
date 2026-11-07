@@ -20,7 +20,6 @@ from .render import (
 from .session import ChatSession
 
 _EXIT_WORDS = frozenset({"exit", "quit"})
-_FAREWELL = "拜拜，早点休息。"
 
 
 def main() -> int:
@@ -108,4 +107,4 @@ def _chat_loop(session: ChatSession) -> int:
 
 
 def _say_farewell(persona: Persona) -> None:
-    print_reply(persona.name, _FAREWELL)
+    print_reply(persona.name, persona.farewell_line())
