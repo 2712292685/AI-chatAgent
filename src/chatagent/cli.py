@@ -7,6 +7,7 @@ from .errors import ChatAgentError
 from .persona import Persona, load_persona
 from .render import (
     end_stream,
+    init_terminal,
     print_banner,
     print_error,
     print_reply,
@@ -21,6 +22,7 @@ _FAREWELL = "拜拜，早点休息。"
 
 def main() -> int:
     """启动入口；返回进程退出码（0 正常，1 配置或鉴权错误）。"""
+    init_terminal()
     try:
         cfg = load_config()
         persona = load_persona()
