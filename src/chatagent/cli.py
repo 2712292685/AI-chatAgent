@@ -11,12 +11,14 @@ from .render import (
     print_banner,
     print_error,
     print_reply,
+    print_reply_prefix,
+    prompt_continuation,
     prompt_user,
     stream_chunk,
 )
 from .session import ChatSession
 
-_EXIT_WORDS = {"exit", "quit"}
+_EXIT_WORDS = frozenset({"exit", "quit"})
 _FAREWELL = "拜拜，早点休息。"
 
 
@@ -36,24 +38,54 @@ def main() -> int:
     return _chat_loop(session)
 
 
+def is_exit_word(line: str) -> bool:
+    """整行精确匹配退出词：忽略大小写与首尾空白。"""
+    return line.strip().lower() in _EXIT_WORDS
+
+
+def is_continuation(line: str) -> bool:
+    r"""行尾单个反斜杠表示续行；以 ``\\`` 结尾是字面反斜杠，不续行。"""
+    return line.endswith("\\") and not line.endswith("\\\\")
+
+
+def strip_continuation(line: str) -> str:
+    r"""去掉续行用的单个反斜杠；行尾 ``\\`` 还原成一个 ``\``。"""
+    if is_continuation(line):
+        return line[:-1]
+    if line.endswith("\\\\"):
+        return line[:-2] + "\\"
+    return line
+
+
+def _read_message() -> str:
+    r"""读一条消息；行尾 ``\`` 继续读下一行，多行用换行符拼成一条。"""
+    line = prompt_user()
+    parts: list[str] = []
+    while True:
+        parts.append(strip_continuation(line))
+        if not is_continuation(line):
+            return "\n".join(parts)
+        line = prompt_continuation()
+
+
 def _chat_loop(session: ChatSession) -> int:
     persona = session.persona
     while True:
         try:
-            line = prompt_user()
+            text = _read_message()
         except (KeyboardInterrupt, EOFError):
             print()
             _say_farewell(persona)
             return 0
 
-        text = line.strip()
-        if not text:
+        if not text.strip():
             continue
-        if text.lower() in _EXIT_WORDS:
+        # 退出词只在整条消息是单独一行时成立，续行拼出来的内容照常发给模型。
+        if "\n" not in text and is_exit_word(text):
             _say_farewell(persona)
             return 0
 
-        stream_chunk(f"{persona.name} › ")
+        print_reply_prefix(persona.name)
         try:
             for chunk in session.ask(text):
                 stream_chunk(chunk)
