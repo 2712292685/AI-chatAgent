@@ -19,8 +19,6 @@ class ChatSession:
         self.system_prompt = system_prompt
         self.cfg = cfg
         self.history: list[Message] = []
-        self.total_input_tokens = 0
-        self.total_output_tokens = 0
 
     def ask(self, user_text: str) -> Generator[str, None, None]:
         """发一轮请求并逐块产出回复。
@@ -38,9 +36,6 @@ class ChatSession:
             print_warning(f"本轮消息约 {needed} token，已超出上下文预算 {budget}，仍照常发送")
 
         payload = build_payload(self.history, self.system_prompt, budget)
-        self.total_input_tokens += estimate_tokens(self.system_prompt) + sum(
-            estimate_tokens(message.content) for message in payload
-        )
 
         chunks: list[str] = []
         stream = chat_stream(self.system_prompt, payload, self.cfg)
@@ -55,4 +50,3 @@ class ChatSession:
         reply = "".join(chunks)
         if reply:
             self.history.append(Message(role="assistant", content=reply))
-            self.total_output_tokens += estimate_tokens(reply)
