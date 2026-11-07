@@ -10,6 +10,7 @@ from .render import (
     init_terminal,
     print_banner,
     print_error,
+    print_interrupted,
     print_reply,
     print_reply_prefix,
     prompt_continuation,
@@ -86,18 +87,22 @@ def _chat_loop(session: ChatSession) -> int:
             return 0
 
         print_reply_prefix(persona.name)
+        stream = session.ask(text)
         try:
-            for chunk in session.ask(text):
+            for chunk in stream:
                 stream_chunk(chunk)
+        except KeyboardInterrupt:
+            # 中断只结束这一轮：关掉生成器释放连接，回到提示符，会话继续。
+            stream.close()
+            print_interrupted()
+            continue
         except ChatAgentError as exc:
+            stream.close()
             end_stream()
             print_error(exc.message)
             continue
-        except KeyboardInterrupt:
-            end_stream()
-            print()
-            _say_farewell(persona)
-            return 0
+        finally:
+            stream.close()
 
         end_stream()
 

@@ -143,6 +143,12 @@ def print_retry(reason: str, attempt: int, total: int) -> None:
     print(_err(message, _YELLOW), file=sys.stderr)
 
 
+def print_interrupted() -> None:
+    """生成被 Ctrl+C 打断：先收尾换行，再打印 ``[已中断]``。"""
+    sys.stdout.write("\n")
+    print(_out("[已中断]", _DIM))
+
+
 def stream_chunk(text: str) -> None:
     """逐片段输出，不换行；写完立即 flush，让字符尽快可见。"""
     sys.stdout.write(text)
