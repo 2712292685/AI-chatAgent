@@ -1,6 +1,6 @@
 [project]
 name = "chatagent"
-version = "0.4.0"
+version = "0.5.0"
 description = "A terminal chat agent with a fixed persona, powered by deepseek-flash"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -10,6 +10,7 @@ dependencies = ["openai>=1.40.0"]
 
 [project.scripts]
 chatagent = "chatagent.cli:main"
+chatagent-robot = "chatagent.robot_cli:main"
 
 [dependency-groups]
 dev = ["mypy>=1.11", "pytest>=8.0", "ruff>=0.6"]

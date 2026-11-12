@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-12
+
+### Added
+- `chatagent-robot` command: streaming tool calling against the `agent_control` robot HTTP API
+- Robot tools for status, move, turn, posture, stop, emergency stop and clear-estop, with Chinese schemas and hard range validation
+- Optional `[robot]` config section (`base_url`, `timeout_seconds`, `max_tool_rounds`) with defaults; existing configs without it keep working
+- Environment overrides `AGENT_CONTROL_BASE_URL` and `AGENT_CONTROL_TOKEN`
+- Tool-aware context trimming that never separates an assistant `tool_calls` message from its `tool` results
+- Ctrl+C during tool execution calls `/api/stop` and writes an `interrupted` tool result back into history
+- Interactive `y/N` confirmation before clearing an emergency stop
+- Local mock OpenAI SSE + mock robot API end-to-end test; no network or real robot is used
+
+### Changed
+- Version bumped to 0.5.0; the original `chatagent` CLI, session, model and context behaviour is unchanged
+
 ## [0.4.0] - 2026-11-08
 
 ### Added

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import ctypes
+import json
 import sys
 import unicodedata
 from typing import Any
@@ -147,6 +148,56 @@ def print_interrupted() -> None:
     """生成被 Ctrl+C 打断：先收尾换行，再打印 ``[已中断]``。"""
     sys.stdout.write("\n")
     print(_out("[已中断]", _DIM))
+
+
+def print_tool_call(name: str, arguments: str) -> None:
+    """显示模型发起的工具调用；参数尽量压成一行 JSON。"""
+    detail = _compact_json(arguments)
+    print(f"  {_out('⚙', _YELLOW)} {name} {detail}".rstrip())
+
+
+def print_tool_result(name: str, result: str) -> None:
+    """显示工具结果，突出成功/失败、实际测量值和错误。"""
+    print(f"  {_out('↳', _DIM)} {format_tool_result(name, result)}")
+
+
+def format_tool_result(name: str, result: str) -> str:
+    """把工具 JSON 结果压成一行人类可读文本；非法 JSON 原样返回。"""
+    try:
+        payload = json.loads(result)
+    except (json.JSONDecodeError, TypeError):
+        return f"{name}: {result}"
+    if not isinstance(payload, dict):
+        return f"{name}: {_compact_json(result)}"
+
+    ok = payload.get("ok") is True
+    state = payload.get("state")
+    headline = "成功" if ok else "未成功"
+    if isinstance(state, str) and state and state != "succeeded":
+        headline += f"（{state}）"
+    details: list[str] = []
+    measured = payload.get("measured")
+    if isinstance(measured, dict) and measured:
+        details.append("实测 " + _compact_json(json.dumps(measured, ensure_ascii=False)))
+    error = payload.get("error")
+    if isinstance(error, str) and error:
+        details.append(error)
+    suffix = "；".join(details)
+    return f"{name}: {headline}" + (f"；{suffix}" if suffix else "")
+
+
+def _compact_json(value: object) -> str:
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return value
+    else:
+        parsed = value
+    try:
+        return json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
+    except (TypeError, ValueError):
+        return str(value)
 
 
 def stream_chunk(text: str) -> None:

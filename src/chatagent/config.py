@@ -9,14 +9,18 @@ from __future__ import annotations
 import os
 import tomllib
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from .errors import AuthError, ConfigError
 from .paths import resolve
 
 API_KEY_ENV = "DEEPSEEK_API_KEY"
+ROBOT_BASE_URL_ENV = "AGENT_CONTROL_BASE_URL"
+ROBOT_TOKEN_ENV = "AGENT_CONTROL_TOKEN"
+DEFAULT_ROBOT_BASE_URL = "http://127.0.0.1:8100"
 
 
 @dataclass(frozen=True)
@@ -46,12 +50,22 @@ class ContextConfig:
 
 
 @dataclass(frozen=True)
+class RobotConfig:
+    """机器人控制 HTTP 服务参数。"""
+
+    base_url: str = DEFAULT_ROBOT_BASE_URL
+    timeout_seconds: int = 55
+    max_tool_rounds: int = 4
+
+
+@dataclass(frozen=True)
 class Config:
     """config.toml 的完整内容。"""
 
     api: ApiConfig
     model: ModelConfig
     context: ContextConfig
+    robot: RobotConfig = field(default_factory=RobotConfig)
 
 
 def load_config(path: Path | None = None) -> Config:
@@ -99,6 +113,7 @@ def load_config(path: Path | None = None) -> Config:
         api=api_config,
         model=model_config,
         context=ContextConfig(budget_tokens=budget_tokens),
+        robot=_robot_config(data, filename),
     )
 
 
@@ -123,6 +138,94 @@ def _read_toml(path: Path) -> dict[str, Any]:
             return tomllib.load(handle)
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(f"{path.name}：TOML 格式错误（{exc}）") from None
+
+
+def _robot_config(data: dict[str, Any], filename: str) -> RobotConfig:
+    """读取可选的 [robot] 段；整段缺失时使用内置默认值。"""
+    if "robot" not in data:
+        return RobotConfig()
+    robot = _section(data, "robot", filename)
+    base_url = _optional_text(
+        robot,
+        "base_url",
+        DEFAULT_ROBOT_BASE_URL,
+        "robot.base_url",
+        filename,
+    )
+    _validate_http_url(base_url, "robot.base_url", filename)
+    timeout = _optional_bounded_int(
+        robot,
+        "timeout_seconds",
+        55,
+        5,
+        120,
+        "robot.timeout_seconds",
+        filename,
+    )
+    rounds = _optional_bounded_int(
+        robot,
+        "max_tool_rounds",
+        4,
+        1,
+        8,
+        "robot.max_tool_rounds",
+        filename,
+    )
+    return RobotConfig(
+        base_url=base_url.rstrip("/"),
+        timeout_seconds=timeout,
+        max_tool_rounds=rounds,
+    )
+
+
+def _optional_text(
+    table: dict[str, Any],
+    key: str,
+    default: str,
+    field: str,
+    filename: str,
+) -> str:
+    if key not in table:
+        return default
+    value = table[key]
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigError(f"{filename}：字段 {field} 必须是非空字符串")
+    return value.strip()
+
+
+def _optional_bounded_int(
+    table: dict[str, Any],
+    key: str,
+    default: int,
+    minimum: int,
+    maximum: int,
+    field: str,
+    filename: str,
+) -> int:
+    if key not in table:
+        return default
+    value = table[key]
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ConfigError(f"{filename}：字段 {field} 必须是整数")
+    if not minimum <= value <= maximum:
+        raise ConfigError(
+            f"{filename}：字段 {field} 必须位于 [{minimum}, {maximum}] 之间，当前为 {value}"
+        )
+    return value
+
+
+def _validate_http_url(value: str, field: str, filename: str) -> None:
+    try:
+        parsed = urlsplit(value)
+        hostname = parsed.hostname
+        _ = parsed.port  # 触发非法端口的 ValueError
+    except ValueError:
+        hostname = None
+        parsed_scheme = ""
+    else:
+        parsed_scheme = parsed.scheme.lower()
+    if parsed_scheme not in {"http", "https"} or not hostname:
+        raise ConfigError(f"{filename}：字段 {field} 必须是 http:// 或 https:// 开头的有效 URL")
 
 
 def _section(data: dict[str, Any], name: str, filename: str) -> dict[str, Any]:

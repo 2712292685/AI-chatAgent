@@ -41,6 +41,9 @@ def test_loads_valid_config(workdir: Path) -> None:
     assert config.model.temperature == 0.8
     assert config.model.max_tokens == 4096
     assert config.context.budget_tokens == 32000
+    assert config.robot.base_url == "http://127.0.0.1:8100"
+    assert config.robot.timeout_seconds == 55
+    assert config.robot.max_tool_rounds == 4
 
 
 def test_missing_file_names_the_file() -> None:
@@ -193,3 +196,65 @@ def test_missing_api_key_explains_both_shells() -> None:
 def test_blank_api_key_is_treated_as_missing() -> None:
     with pytest.raises(AuthError):
         load_api_key({"DEEPSEEK_API_KEY": "   "})
+
+
+def test_optional_robot_section_is_loaded(workdir: Path) -> None:
+    text = (
+        VALID_CONFIG
+        + """
+[robot]
+base_url = "https://robot.example:8100/"
+timeout_seconds = 30
+max_tool_rounds = 2
+"""
+    )
+
+    config = load_config(write_config(workdir, text))
+
+    assert config.robot.base_url == "https://robot.example:8100"
+    assert config.robot.timeout_seconds == 30
+    assert config.robot.max_tool_rounds == 2
+
+
+def test_partial_robot_section_uses_defaults(workdir: Path) -> None:
+    text = VALID_CONFIG + "\n[robot]\ntimeout_seconds = 20\n"
+
+    config = load_config(write_config(workdir, text))
+
+    assert config.robot.base_url == "http://127.0.0.1:8100"
+    assert config.robot.timeout_seconds == 20
+    assert config.robot.max_tool_rounds == 4
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("base_url", '"not-a-url"', "robot.base_url"),
+        ("timeout_seconds", "4", "robot.timeout_seconds"),
+        ("timeout_seconds", "121", "robot.timeout_seconds"),
+        ("max_tool_rounds", "0", "robot.max_tool_rounds"),
+        ("max_tool_rounds", "9", "robot.max_tool_rounds"),
+        ("timeout_seconds", "true", "必须是整数"),
+    ],
+)
+def test_invalid_robot_values_are_rejected(
+    workdir: Path,
+    field: str,
+    value: str,
+    message: str,
+) -> None:
+    text = VALID_CONFIG + f"\n[robot]\n{field} = {value}\n"
+
+    with pytest.raises(ConfigError) as excinfo:
+        load_config(write_config(workdir, text))
+
+    assert message in excinfo.value.message
+
+
+def test_robot_section_must_be_a_table(workdir: Path) -> None:
+    text = 'robot = "bad"\n' + VALID_CONFIG
+
+    with pytest.raises(ConfigError) as excinfo:
+        load_config(write_config(workdir, text))
+
+    assert "配置段 [robot] 必须是一个表" in excinfo.value.message

@@ -13,3 +13,8 @@ max_tokens = 4096
 
 [context]
 budget_tokens = 32000   # 发送给模型的历史预算，不含 system prompt
+
+[robot]
+base_url = "http://127.0.0.1:8100"
+timeout_seconds = 55    # 任务轮询的总等待上限（5–120）
+max_tool_rounds = 4     # 单次用户消息最多执行几轮工具（1–8）
