@@ -4,6 +4,9 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Shipped persona replaced: the assistant is now 「小六」, the reception robot dog of the 温州市具身智能6S中心 lobby, instead of 「阿岩」 the late-night study partner. Code, CLI, config and robot behaviour are unchanged.
+
 ## [0.5.0] - 2026-11-12
 
 ### Added
